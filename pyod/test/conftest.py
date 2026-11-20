@@ -75,6 +75,7 @@ except (ImportError, OSError) as _torch_exc:
         "test_devnet.py",
         "test_dif.py",
         "test_lunar.py",
+        "test_jepa.py",
         "test_embedding.py",
         # Shared deep learning machinery
         "test_base_dl.py",
