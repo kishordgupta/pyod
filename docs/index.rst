@@ -297,6 +297,7 @@ Clustering           KShape              k-Shape clustering for subsequence anom
 Streaming            SAND                Streaming anomaly detection with drift adaptation (experimental)                                        2021   :class:`pyod.models.ts_sand.SAND`                               :cite:`a-boniol2021sand`
 Deep Learning        LSTMAD              LSTM prediction error with Mahalanobis distance scoring                                                 2015   :class:`pyod.models.ts_lstm.LSTMAD`                             :cite:`a-malhotra2015long`
 Deep Learning        AnomalyTransformer  Transformer with association discrepancy (experimental)                                                 2022   :class:`pyod.models.ts_anomaly_transformer.AnomalyTransformer`  :cite:`a-xu2022anomaly`
+Deep Learning        TSJEPA              JEPA on patches: latent prediction error of masked patches (experimental)                               2023   :class:`pyod.models.ts_jepa.TSJEPA`                             :cite:`a-assran2023self,a-balestriero2025lejepa`
 ===================  ==================  ======================================================================================================  =====  ==============================================================  ======================================================
 
 

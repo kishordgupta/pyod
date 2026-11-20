@@ -83,6 +83,7 @@ except (ImportError, OSError) as _torch_exc:
         # Torch-based time series detectors
         "test_ts_lstm.py",
         "test_ts_anomaly_transformer.py",
+        "test_ts_jepa.py",
         # PyG graph detectors (all require torch_geometric)
         "test_pyg_*.py",
     ]

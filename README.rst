@@ -591,6 +591,11 @@ Algorithm rankings from `TSB-AD benchmark <https://github.com/TheDatumOrg/TSB-AD
      - Transformer with association discrepancy (experimental)
      - 2022
      - [#Xu2022Anomaly]_
+   * - Deep Learning
+     - TSJEPA
+     - JEPA on patches: latent prediction error of masked patches, experimental (`example <https://github.com/yzhao062/pyod/blob/development/examples/ts_jepa_example.py>`__)
+     - 2023
+     - [#Assran2023Self]_ [#Balestriero2025LeJEPA]_
 
 
 **(i-c) Graph Anomaly Detection** (``pip install pyod[graph]``):
