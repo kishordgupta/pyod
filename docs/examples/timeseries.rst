@@ -1,7 +1,7 @@
 Layer 1: Time Series Anomaly Detection
 ========================================
 
-PyOD ships 5 stable time series detectors plus 2 experimental (``SAND``, ``AnomalyTransformer``), all using the same ``fit``/``predict``/``decision_function`` API. The stable five are what ``ADEngine.list_detectors(data_type='time_series')`` returns; the experimental pair is available by class import but not routed by ADEngine yet. Rankings from `TSB-AD benchmark <https://github.com/TheDatumOrg/TSB-AD>`_ :cite:`a-liu2024tsb` (NeurIPS 2024, 1,070 datasets, 40 algorithms).
+PyOD ships 5 stable time series detectors plus 3 experimental (``SAND``, ``AnomalyTransformer``, ``TSJEPA``), all using the same ``fit``/``predict``/``decision_function`` API. The stable five are what ``ADEngine.list_detectors(data_type='time_series')`` returns; the experimental ones are available by class import but not routed by ADEngine yet. Rankings from `TSB-AD benchmark <https://github.com/TheDatumOrg/TSB-AD>`_ :cite:`a-liu2024tsb` (NeurIPS 2024, 1,070 datasets, 40 algorithms).
 
 **Input format**: numpy array of shape ``(n_timestamps,)`` for univariate or ``(n_timestamps, n_channels)`` for multivariate.
 
@@ -55,6 +55,10 @@ Detectors
      - AnomalyTransformer: attention discrepancy
      - 2022
      - Xu et al.
+   * - Deep Learning
+     - `TSJEPA <https://github.com/yzhao062/pyod/blob/development/examples/ts_jepa_example.py>`__: latent prediction of masked patches
+     - 2023
+     - Assran et al.
 
 ----
 

@@ -261,6 +261,7 @@ Neural Networks      AnoGAN            Anomaly Detection with Generative Adversa
 Neural Networks      ALAD              Adversarially learned anomaly detection                                                                 2018   :class:`pyod.models.alad.ALAD`                       :cite:`a-zenati2018adversarially`
 Neural Networks      DevNet            Deep Anomaly Detection with Deviation Networks                                                          2019   :class:`pyod.models.devnet.DevNet`                   :cite:`a-pang2019deep`
 Neural Networks      AE1SVM            Autoencoder-based One-class Support Vector Machine                                                      2019   :class:`pyod.models.ae1svm.AE1SVM`                   :cite:`a-nguyen2019scalable`
+Neural Networks      JEPA              Joint-Embedding Predictive Architecture (latent prediction error as the outlier score, experimental)    2023   :class:`pyod.models.jepa.JEPA`                       :cite:`a-assran2023self,a-balestriero2025lejepa`
 Graph-based          R-Graph           Outlier detection by R-graph                                                                            2017   :class:`pyod.models.rgraph.RGraph`                   :cite:`a-you2017provable`
 Graph-based          LUNAR             LUNAR: Unifying Local Outlier Detection Methods via Graph Neural Networks                               2022   :class:`pyod.models.lunar.LUNAR`                     :cite:`a-goodge2022lunar`
 Embedding-based      EmbeddingOD       Multi-modal anomaly detection via foundation model embeddings (text, image, audio)                      2025   :class:`pyod.models.embedding.EmbeddingOD`           :cite:`a-li2024nlp`
@@ -296,6 +297,7 @@ Clustering           KShape              k-Shape clustering for subsequence anom
 Streaming            SAND                Streaming anomaly detection with drift adaptation (experimental)                                        2021   :class:`pyod.models.ts_sand.SAND`                               :cite:`a-boniol2021sand`
 Deep Learning        LSTMAD              LSTM prediction error with Mahalanobis distance scoring                                                 2015   :class:`pyod.models.ts_lstm.LSTMAD`                             :cite:`a-malhotra2015long`
 Deep Learning        AnomalyTransformer  Transformer with association discrepancy (experimental)                                                 2022   :class:`pyod.models.ts_anomaly_transformer.AnomalyTransformer`  :cite:`a-xu2022anomaly`
+Deep Learning        TSJEPA              JEPA on patches: latent prediction error of masked patches (experimental)                               2023   :class:`pyod.models.ts_jepa.TSJEPA`                             :cite:`a-assran2023self,a-balestriero2025lejepa`
 ===================  ==================  ======================================================================================================  =====  ==============================================================  ======================================================
 
 

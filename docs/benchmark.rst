@@ -23,7 +23,7 @@ For a simpler visualization, see the comparison driver `compare_all_models.py <h
 TSB-AD (Time Series)
 --------------------
 
-`TSB-AD <https://github.com/TheDatumOrg/TSB-AD>`_ :cite:`a-liu2024tsb` is a time-series anomaly detection benchmark of 40 algorithms across 1,070 datasets (NeurIPS 2024). PyOD ships 5 ADEngine-routed stable time-series detectors (TimeSeriesOD, MatrixProfile, SpectralResidual, KShape #2, LSTMAD), selected by ``ADEngine`` based on TSB-AD rankings, plus 2 experimental implementations (SAND, AnomalyTransformer) that are available via direct class import but not yet included in routing. See :doc:`examples/timeseries` for usage.
+`TSB-AD <https://github.com/TheDatumOrg/TSB-AD>`_ :cite:`a-liu2024tsb` is a time-series anomaly detection benchmark of 40 algorithms across 1,070 datasets (NeurIPS 2024). PyOD ships 5 ADEngine-routed stable time-series detectors (TimeSeriesOD, MatrixProfile, SpectralResidual, KShape #2, LSTMAD), selected by ``ADEngine`` based on TSB-AD rankings, plus 3 experimental implementations (SAND, AnomalyTransformer, TSJEPA) that are available via direct class import but not yet included in routing. See :doc:`examples/timeseries` for usage.
 
 
 BOND (Graph)

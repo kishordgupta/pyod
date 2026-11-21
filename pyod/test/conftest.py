@@ -75,6 +75,7 @@ except (ImportError, OSError) as _torch_exc:
         "test_devnet.py",
         "test_dif.py",
         "test_lunar.py",
+        "test_jepa.py",
         "test_embedding.py",
         # Shared deep learning machinery
         "test_base_dl.py",
@@ -82,6 +83,7 @@ except (ImportError, OSError) as _torch_exc:
         # Torch-based time series detectors
         "test_ts_lstm.py",
         "test_ts_anomaly_transformer.py",
+        "test_ts_jepa.py",
         # PyG graph detectors (all require torch_geometric)
         "test_pyg_*.py",
     ]

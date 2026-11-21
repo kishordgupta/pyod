@@ -202,6 +202,16 @@ pyod.models.inne module
     :show-inheritance:
 
 
+pyod.models.jepa module
+-----------------------
+
+.. automodule:: pyod.models.jepa
+    :members:
+    :exclude-members: get_params, set_params, decision_function_update, epoch_update, evaluating_prepare, evaluating_forward, training_prepare, training_forward, build_model, train, load
+    :undoc-members:
+    :show-inheritance:
+
+
 pyod.models.kde module
 ----------------------
 
