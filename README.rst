@@ -596,6 +596,11 @@ Algorithm rankings from `TSB-AD benchmark <https://github.com/TheDatumOrg/TSB-AD
      - Transformer with association discrepancy (experimental)
      - 2022
      - [#Xu2022Anomaly]_
+   * - Deep Learning
+     - TSJEPA
+     - JEPA on patches: latent prediction error of masked patches, experimental (`example <https://github.com/yzhao062/pyod/blob/development/examples/ts_jepa_example.py>`__)
+     - 2023
+     - [#Assran2023Self]_ [#Balestriero2025LeJEPA]_
 
 
 **(i-c) Graph Anomaly Detection** (``pip install pyod[graph]``):
@@ -833,6 +838,10 @@ Reference
 .. [#Angiulli2002Fast] Angiulli, F. and Pizzuti, C., 2002, August. Fast outlier detection in high dimensional spaces. In *European Conference on Principles of Data Mining and Knowledge Discovery* pp. 15-27.
 
 .. [#Arning1996A] Arning, A., Agrawal, R. and Raghavan, P., 1996, August. A Linear Method for Deviation Detection in Large Databases. In *KDD* (Vol. 1141, No. 50, pp. 972-981).
+
+.. [#Assran2023Self] Assran, M., Duval, Q., Misra, I., Bojanowski, P., Vincent, P., Rabbat, M., LeCun, Y. and Ballas, N., 2023. Self-Supervised Learning from Images with a Joint-Embedding Predictive Architecture. In *IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)*.
+
+.. [#Balestriero2025LeJEPA] Balestriero, R. and LeCun, Y., 2025. LeJEPA: Provable and Scalable Self-Supervised Learning Without the Heuristics. *arXiv preprint arXiv:2511.08544*.
 
 .. [#Bandaragoda2018Isolation] Bandaragoda, T. R., Ting, K. M., Albrecht, D., Liu, F. T., Zhu, Y., and Wells, J. R., 2018, Isolation-based anomaly detection using nearest-neighbor ensembles. *Computational Intelligence*\ , 34(4), pp. 968-998.
 

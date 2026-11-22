@@ -1,7 +1,7 @@
 Time Series Detectors
 ======================
 
-PyOD has 7 dedicated time series detectors. Rankings from `TSB-AD <https://github.com/TheDatumOrg/TSB-AD>`_ (NeurIPS 2024, 1,070 datasets).
+PyOD has 8 dedicated time series detectors. Rankings from `TSB-AD <https://github.com/TheDatumOrg/TSB-AD>`_ (NeurIPS 2024, 1,070 datasets).
 
 See :doc:`examples/timeseries` for usage and input format.
 
@@ -69,6 +69,16 @@ pyod.models.ts\_anomaly\_transformer module
 --------------------------------------------
 
 .. automodule:: pyod.models.ts_anomaly_transformer
+    :members:
+    :exclude-members: get_params, set_params
+    :undoc-members:
+    :show-inheritance:
+
+
+pyod.models.ts\_jepa module
+-----------------------------
+
+.. automodule:: pyod.models.ts_jepa
     :members:
     :exclude-members: get_params, set_params
     :undoc-members:
