@@ -31,8 +31,9 @@ if __name__ == "__main__":
     # A window of 40 timestamps is cut into 8 patches of 5 timestamps.
     # mask_mode='block' (default) uses context on both sides of the
     # hidden patches; mask_mode='forecast' only uses the past.
-    # variant='lejepa' (default) trains the network with SIGReg; the other
-    # JEPA versions are variant='ijepa', 'tsjepa' and 'tjepa'.
+    # variant='lejepa' (default) trains the network with SIGReg. The other
+    # JEPA versions, for example variant='ijepa', 'tsjepa' or 'kerjepa',
+    # are listed in the documentation of TSJEPA.
     clf_name = 'TSJEPA'
     clf = TSJEPA(window_size=40, patch_len=5, contamination=contamination)
     clf.fit(X_train)

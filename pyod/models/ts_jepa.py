@@ -8,7 +8,8 @@ the hidden patches from the visible ones. Timestamps whose patch
 embedding cannot be predicted from its context are anomalous.
 
 ``variant`` selects the JEPA that trains the network: LeJEPA (SIGReg),
-I-JEPA (EMA target encoder), TS-JEPA or T-JEPA.
+I-JEPA (EMA target encoder), TS-JEPA, T-JEPA or one of twelve further
+versions.
 
 PyTorch is imported lazily so that it remains an optional dependency.
 """
@@ -23,9 +24,16 @@ from ._ts_utils import validate_ts_input
 
 _SCORES = ('pred', 'embed', 'combined')
 _AGGREGATIONS = ('mean', 'max')
-_VARIANTS = ('lejepa', 'ijepa', 'tsjepa', 'tjepa')
+# The first four versions are implemented in this module and in
+# _jepa_utils.py. The others are recipes in _jepa_variants.py, which is
+# imported lazily because it needs torch.
+_BUILT_IN = ('lejepa', 'ijepa', 'tsjepa', 'tjepa')
+_VARIANTS = _BUILT_IN + (
+    'vjepa', 'vjepa21', 'cjepa', 'sjepa', 'salt', 'vicreg', 'kerjepa',
+    'lpjepa', 'lambdajepa', 'lenepa', 'lewm', 'cfjepa')
 # What None means for the two parameters whose published value differs
-# between the variants: (encoder_norm, ema_momentum).
+# between the variants: (encoder_norm, ema_momentum). A recipe carries
+# its own values.
 _VARIANT_DEFAULTS = {'lejepa': (False, None), 'ijepa': (False, 0.996),
                      'tsjepa': (True, 0.998), 'tjepa': (True, 0.996)}
 
@@ -78,14 +86,62 @@ class TSJEPA(BaseDetector):
       post-norm encoder with a normalised output and an EMA copy of the
       whole encoder as target.
 
+    Twelve further versions are re-implemented from their papers. Six
+    of them train the network of ``'ijepa'`` or ``'lejepa'`` with
+    another loss:
+
+    - ``'vjepa'``: ``'ijepa'`` with the absolute error as loss, as in
+      V-JEPA [6]_.
+    - ``'cjepa'``: ``'ijepa'`` plus VICReg terms on the context
+      embeddings, as in C-JEPA [7]_.
+    - ``'vicreg'``: ``'lejepa'`` with the variance and covariance terms
+      of VICReg in place of SIGReg, as in EB-JEPA [8]_.
+    - ``'kerjepa'``: ``'lejepa'`` with a closed-form kernel discrepancy
+      in place of SIGReg and standardised targets, as in KerJEPA [9]_.
+    - ``'lpjepa'``: ``'lejepa'`` with non-negative embeddings matched
+      to a rectified Laplace distribution, as in Rectified LpJEPA
+      [10]_.
+    - ``'lambdajepa'``: ``'lejepa'`` with a Gaussian divergence
+      (SACReg) in place of SIGReg, as in lambda-JEPA [11]_.
+
+    Three change the network as well:
+
+    - ``'vjepa21'``: the predictor also predicts the visible patches,
+      at several encoder depths, as in V-JEPA 2.1 [12]_.
+    - ``'sjepa'``: ``'ijepa'`` with a Gaussian latent for the predictor
+      and a KL term, a stochastic-latent JEPA [13]_.
+    - ``'salt'``: a teacher is trained by masked reconstruction and
+      then frozen, and its embeddings are the targets, as in SALT
+      [14]_. The teacher gets one sixth of ``epochs``, at least one.
+
+    Three do not hide patches:
+
+    - ``'lenepa'``: a causal Transformer predicts the embedding of the
+      next patch, with SIGReg per window, as in LeNEPA [15]_.
+    - ``'lewm'``: the same task with SIGReg per patch position, as in
+      LeWorldModel [16]_ without its action input.
+    - ``'cfjepa'``: crops of the window are the context, three zones
+      after the crop are predicted, and a dilated convolutional encoder
+      gives one embedding per timestamp, as in CF-JEPA [17]_. Its depth
+      is the constant ``n_blocks`` of ``variant_params``; ``n_heads``,
+      ``n_layers``, ``pred_layers`` and ``dropout`` do not apply.
+
+    For these three, ``mask_mode`` and ``mask_ratio`` are ignored, the
+    ``pred`` score of a patch is the error of predicting it from the
+    patches before it, and the first patch of a window (for
+    ``'cfjepa'`` the leading crop) has none.
+
     A variant contributes its network, its target mechanism and its
     training loss. Masking, model sizes, optimizer, training budget and
     the anomaly scores are those of this detector for every variant;
-    none of the cited papers defines an anomaly score. The variants
-    with normalised targets or outputs (``'ijepa'``, ``'tsjepa'``,
-    ``'tjepa'``) can lose accuracy when the test series follows a
-    different operating regime than the training series; ``'lejepa'``
-    is the default for that reason.
+    none of the cited papers defines an anomaly score. Where a paper
+    leaves a constant open, the value used is named in
+    ``pyod/models/_jepa_variants.py``. The variants that normalise the
+    prediction targets (``'ijepa'``, ``'tsjepa'``, ``'tjepa'``,
+    ``'vjepa'``, ``'vjepa21'``, ``'cjepa'``, ``'sjepa'``, ``'salt'``,
+    ``'lenepa'``, ``'cfjepa'``) can lose accuracy when the test series
+    follows a different operating regime than the training series;
+    ``'lejepa'`` is the default for that reason.
 
     Three anomaly scores are available through ``score``:
 
@@ -129,8 +185,9 @@ class TSJEPA(BaseDetector):
 
     pred_layers : int, optional (default=1)
         Number of Transformer layers of the predictor. Its width is
-        ``d_model // 2`` for 'lejepa' and 'ijepa' and ``d_model`` for
-        'tsjepa' and 'tjepa'.
+        ``d_model`` for 'tsjepa' and 'tjepa' and ``d_model // 2`` for
+        the other variants. Not used by 'lenepa', 'lewm' and 'cfjepa',
+        which have no predictor Transformer.
 
     dropout : float, optional (default=0.0)
         Dropout rate of the encoder and the predictor.
@@ -141,6 +198,7 @@ class TSJEPA(BaseDetector):
         in the window, so the context lies on both sides. 'forecast'
         always hides the last patches, which makes the detector causal.
         'mixed' trains on both. 'random' hides scattered patches.
+        Ignored by 'lenepa', 'lewm' and 'cfjepa', as is ``mask_ratio``.
 
     mask_ratio : float in (0., 1.), optional (default=0.3)
         Fraction of patches hidden. At least one patch is hidden and at
@@ -152,8 +210,8 @@ class TSJEPA(BaseDetector):
         for 'random'. Ignored for 'forecast', which has a single mask.
 
     variant : str, optional (default='lejepa')
-        The JEPA that trains the network, one of 'lejepa', 'ijepa',
-        'tsjepa' and 'tjepa' as described above.
+        The JEPA that trains the network, one of the sixteen names
+        described above.
 
     sigreg_weight : float in [0., 1.], optional (default=0.05)
         Weight ``w`` of SIGReg. The loss is
@@ -161,13 +219,17 @@ class TSJEPA(BaseDetector):
         Only used when ``variant='lejepa'``.
 
     sigreg_slices : int, optional (default=128)
-        Number of random projections per SIGReg evaluation.
-        Only used when ``variant='lejepa'``.
+        Number of random projections per SIGReg evaluation. Used by
+        'lejepa', 'lenepa' and 'lewm', and by 'lpjepa' for the
+        projections of its own regulariser.
 
     ema_momentum : float in [0., 1.] or None, optional (default=None)
-        Initial momentum of the target encoder, annealed to 1 over
-        training. None uses 0.996 for 'ijepa' and 'tjepa' and 0.998 for
-        'tsjepa'. Not used when ``variant='lejepa'``.
+        Momentum of the EMA target encoder at the first training step.
+        It rises to 1 over training, except for 'vjepa21', which keeps
+        it fixed. None uses the published value: 0.996 for 'ijepa',
+        'tjepa', 'cjepa' and 'sjepa', 0.998 for 'tsjepa' and 'vjepa',
+        0.99925 for 'vjepa21' and 0.983 for 'cfjepa'. Not used by the
+        variants without an EMA target.
 
     recon_weight : float, optional (default=0.0)
         Weight of an auxiliary loss that linearly reconstructs each raw
@@ -201,12 +263,21 @@ class TSJEPA(BaseDetector):
         Maximum gradient norm. None or 0 disables clipping.
 
     encoder_norm : bool or None, optional (default=None)
-        If True, normalise the encoder output. None uses False for
-        'lejepa' and 'ijepa' and True, the published form, for 'tsjepa'
-        and 'tjepa'. A normalised output lets shifted or extreme inputs
-        saturate to a direction that is easy to predict, which degrades
-        the scores when the test series follows a different operating
-        regime than the training series.
+        If True, normalise the encoder output. None uses True, the
+        published form, for 'tsjepa' and 'tjepa' and False for the
+        other variants. A normalised output lets shifted or extreme
+        inputs saturate to a direction that is easy to predict, which
+        degrades the scores when the test series follows a different
+        operating regime than the training series. Not used by
+        'cfjepa'.
+
+    variant_params : dict or None, optional (default=None)
+        Overrides of the constants of one of the twelve further
+        variants, for example ``{'cov_weight': 40.0}`` for
+        ``variant='vicreg'``. The names and default values are the
+        ``params`` of the recipe classes in
+        ``pyod/models/_jepa_variants.py``. The first four variants have
+        no such constants.
 
     device : str, optional (default='auto')
         Device to use ('cpu', 'cuda', 'mps', or 'auto').
@@ -232,7 +303,12 @@ class TSJEPA(BaseDetector):
 
     ema_momentum_ : float or None
         The initial target-encoder momentum used during fit. None for
-        ``variant='lejepa'``.
+        a variant without an EMA target.
+
+    variant_params_ : dict
+        The constants of the variant used during fit, with the
+        overrides of ``variant_params`` applied. Empty for the first
+        four variants.
 
     n_channels_ : int
         Number of channels seen during fit.
@@ -281,6 +357,42 @@ class TSJEPA(BaseDetector):
     .. [5] Thimonier, H., De Melo Costa, J. L., Popineau, F., Rimmel, A.,
        & Doan, B.-L. (2025). T-JEPA: Augmentation-Free Self-Supervised
        Learning for Tabular Data. ICLR 2025.
+    .. [6] Bardes, A., Garrido, Q., Ponce, J., Chen, X., Rabbat, M.,
+       LeCun, Y., Assran, M., & Ballas, N. (2024). Revisiting Feature
+       Prediction for Learning Visual Representations from Video.
+       arXiv:2404.08471.
+    .. [7] Mo, S., & Tong, S. (2024). Connecting Joint-Embedding
+       Predictive Architecture with Contrastive Self-supervised
+       Learning. arXiv:2410.19560.
+    .. [8] Terver, B. et al. (2026). A Lightweight Library for
+       Energy-Based Joint-Embedding Predictive Architectures.
+       arXiv:2602.03604.
+    .. [9] Zimmermann, E. et al. (2025). KerJEPA: Kernel Discrepancies
+       for Euclidean Self-Supervised Learning. arXiv:2512.19605.
+    .. [10] Kuang, Y. et al. (2026). Rectified LpJEPA: Joint-Embedding
+       Predictive Architectures with Sparse and Maximum-Entropy
+       Representations. ICML 2026. arXiv:2602.01456.
+    .. [11] Demirel, B. et al. (2026). lambda-JEPA: Spectral
+       Anti-Collapse Regularization for Self-Supervised Learning.
+       arXiv:2609.35288.
+    .. [12] Mur-Labadia, L., Muckley, M., Bar, A., Assran, M., Sinha, K.,
+       Rabbat, M., LeCun, Y., Ballas, N., & Bardes, A. (2026).
+       V-JEPA 2.1: Unlocking Dense Features in Video Self-Supervised
+       Learning. arXiv:2603.14482.
+    .. [13] Giakoumoglou, N., Giakoumoglou, P., & Stathaki, T. (2026).
+       A Stochastic Latent Variable Generalization of Joint-Embedding
+       Predictive Architectures. arXiv:2611.09302.
+    .. [14] Li, X. et al. (2025). Rethinking JEPA: Compute-Efficient
+       Video SSL with Frozen Teachers. arXiv:2509.24317.
+    .. [15] Chemeris, A., Jin, M., & Balestriero, R. (2026). LeNEPA:
+       No-Augmentation Next-Latent Prediction for Time-Series
+       Representation Learning. arXiv:2607.00958.
+    .. [16] Maes, L. et al. (2026). LeWorldModel: Stable End-to-End
+       Joint-Embedding Predictive Architecture from Pixels.
+       arXiv:2603.19312.
+    .. [17] Lee, J., & Sim, S. (2026). CF-JEPA: Mask-free forward
+       prediction with asymmetric encoder utilization for time-series
+       representation learning. arXiv:2606.07031.
     """
 
     def __init__(self, window_size=100, patch_len=10, step=1,
@@ -292,8 +404,9 @@ class TSJEPA(BaseDetector):
                  sigreg_slices=128, ema_momentum=None, recon_weight=0.0,
                  score='pred', score_aggregation='mean',
                  epochs=10, lr=1e-3, weight_decay=1e-4, batch_size=64,
-                 grad_clip=1.0, encoder_norm=None, device='auto',
-                 random_state=42, verbose=0, contamination=0.1):
+                 grad_clip=1.0, encoder_norm=None, variant_params=None,
+                 device='auto', random_state=42, verbose=0,
+                 contamination=0.1):
         super(TSJEPA, self).__init__(contamination=contamination)
         self.window_size = window_size
         self.patch_len = patch_len
@@ -321,6 +434,7 @@ class TSJEPA(BaseDetector):
         self.batch_size = batch_size
         self.grad_clip = grad_clip
         self.encoder_norm = encoder_norm
+        self.variant_params = variant_params
         self.device = device
         self.random_state = random_state
         self.verbose = verbose
@@ -345,6 +459,14 @@ class TSJEPA(BaseDetector):
                 'cuda' if torch.cuda.is_available() else 'cpu')
         return torch.device(self.device)
 
+    def _recipe(self):
+        """Return the recipe of ``variant``, or None for the four
+        variants implemented in this module."""
+        if self.variant in _BUILT_IN:
+            return None
+        from ._jepa_variants import RECIPES
+        return RECIPES[self.variant]
+
     def _validate_params(self):
         """Check the constructor parameters that can be checked early."""
         from ._jepa_utils import MASK_MODES
@@ -365,6 +487,15 @@ class TSJEPA(BaseDetector):
             raise ValueError("recon_weight is only available for the "
                              "'lejepa' and 'ijepa' variants; got "
                              "variant=%r" % (self.variant,))
+        if self.variant_params:
+            recipe = self._recipe()
+            known = sorted(recipe.params) if recipe is not None else []
+            if not isinstance(self.variant_params, dict) or \
+                    set(self.variant_params) - set(known):
+                raise ValueError(
+                    "variant_params of variant=%r must be a dict with "
+                    "keys from %s; got %r"
+                    % (self.variant, known, self.variant_params))
         if self.mask_mode not in MASK_MODES:
             raise ValueError("mask_mode must be one of %s; got %r"
                              % (MASK_MODES, self.mask_mode))
@@ -423,8 +554,8 @@ class TSJEPA(BaseDetector):
         Returns
         -------
         model : torch.nn.Module
-            A network with the ``forward`` and ``multi_mask_errors``
-            interface of ``_jepa_utils.JEPACore``.
+            A network with the ``multi_mask_errors`` interface of
+            ``_jepa_utils.JEPACore``.
         """
         from ._jepa_utils import JEPACore, TJEPACore, TSJEPACore
 
@@ -432,6 +563,10 @@ class TSJEPA(BaseDetector):
         size = dict(d_model=self.d_model, n_heads=self.n_heads,
                     n_layers=self.n_layers, pred_layers=self.pred_layers,
                     dropout=self.dropout, encoder_norm=self.encoder_norm_)
+        recipe = self._recipe()
+        if recipe is not None:
+            return recipe.build(self, n_tokens, n_channels, size,
+                                self.variant_params_)
         if self.variant == 'tsjepa':
             return TSJEPACore(n_tokens=n_tokens, patch_len=self.patch_len,
                               n_channels=n_channels, **size)
@@ -486,11 +621,18 @@ class TSJEPA(BaseDetector):
         self.n_tokens_ = n_patches
         self.n_mask_ = int(np.clip(round(self.mask_ratio * n_patches),
                                    1, n_patches - 1))
-        norm, momentum = _VARIANT_DEFAULTS[self.variant]
+        recipe = self._recipe()
+        if recipe is None:
+            norm, momentum = _VARIANT_DEFAULTS[self.variant]
+        else:
+            norm, momentum = recipe.encoder_norm, recipe.ema_momentum
         self.encoder_norm_ = (norm if self.encoder_norm is None
                               else bool(self.encoder_norm))
         self.ema_momentum_ = (momentum if self.ema_momentum is None
                               else self.ema_momentum)
+        self.variant_params_ = dict(
+            {} if recipe is None else recipe.params,
+            **(self.variant_params or {}))
 
         # Step 2: training windows, subsampled to the training budget
         train_step = self.train_step or max(1, self.patch_len // 2)
@@ -551,6 +693,41 @@ class TSJEPA(BaseDetector):
         scores[~valid] = self.threshold_
         return scores
 
+    def _loss(self, model, batch_x, ctx, tgt, gen):
+        """Loss of one batch for the four variants implemented in this
+        module.
+
+        Returns
+        -------
+        loss : torch.Tensor (scalar)
+            The loss to minimise.
+
+        loss_pred : torch.Tensor (scalar)
+            Its latent prediction term.
+        """
+        import torch.nn.functional as F
+        from ._jepa_utils import sigreg_loss
+
+        pred, h_tgt, h_all = model(batch_x, ctx, tgt)
+        # The targets are detached: the encoder must not lower the loss
+        # by making its own targets easier to predict.
+        if self.variant == 'tsjepa':
+            loss_pred = F.l1_loss(pred, h_tgt.detach())
+        else:
+            loss_pred = F.mse_loss(pred, h_tgt.detach())
+        loss = loss_pred
+        if self.variant == 'lejepa':
+            # one group per patch position: (P, B, D)
+            reg = sigreg_loss(h_all.transpose(0, 1),
+                              num_slices=self.sigreg_slices,
+                              generator=gen)
+            loss = (1 - self.sigreg_weight) * loss_pred \
+                   + self.sigreg_weight * reg
+        if self.recon_weight > 0:
+            loss = loss + self.recon_weight * F.mse_loss(
+                model.recon_head(h_all), batch_x)
+        return loss, loss_pred
+
     def _train_model(self, patches, device):
         """Train ``model_`` on the training patches.
 
@@ -563,69 +740,76 @@ class TSJEPA(BaseDetector):
             Device to train on.
         """
         torch = _require_torch()
-        import torch.nn.functional as F
         from torch.utils.data import DataLoader, TensorDataset
-        from ._jepa_utils import ema_update, sample_masks, sigreg_loss
+        from ._jepa_utils import ema_update, momentum_at, sample_masks
 
         model = self.model_
+        recipe = self._recipe()
+        hp = self.variant_params_
         gen = torch.Generator().manual_seed(self.random_state)
-        loader = DataLoader(
-            TensorDataset(patches), batch_size=self.batch_size,
-            shuffle=True, drop_last=len(patches) >= self.batch_size,
-            generator=gen)
+
+        def make_loader():
+            return DataLoader(
+                TensorDataset(patches), batch_size=self.batch_size,
+                shuffle=True, drop_last=len(patches) >= self.batch_size,
+                generator=gen)
+
+        # schedule: how the momentum of an EMA target encoder develops,
+        # None for a variant without one
+        if recipe is None:
+            n_epochs, masked = self.epochs, True
+            schedule = None if self.variant == 'lejepa' else 'linear'
+        else:
+            # a first stage of its own, e.g. the teacher of 'salt'
+            recipe.pretrain(self, model, make_loader, device, gen, hp)
+            n_epochs, masked = recipe.train_epochs(self, hp), recipe.masked
+            schedule = recipe.ema_schedule
+
+        loader = make_loader()
         optimizer = torch.optim.AdamW(model.parameters(), lr=self.lr,
                                       weight_decay=self.weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=max(1, self.epochs), eta_min=self.lr * 0.05)
-        total_steps = max(1, self.epochs * len(loader))
+            optimizer, T_max=max(1, n_epochs), eta_min=self.lr * 0.05)
+        total_steps = max(1, n_epochs * len(loader))
         step = 0
 
         model.train()
-        for epoch in range(self.epochs):
+        for epoch in range(n_epochs):
             epoch_losses = []
             for (batch_x,) in loader:
                 batch_x = batch_x.to(device)
-                ctx, tgt = sample_masks(batch_x.size(0), self.n_tokens_,
-                                        self.n_mask_, self.mask_mode, gen)
-                ctx, tgt = ctx.to(device), tgt.to(device)
+                ctx = tgt = None
+                if masked:
+                    ctx, tgt = sample_masks(
+                        batch_x.size(0), self.n_tokens_, self.n_mask_,
+                        self.mask_mode, gen)
+                    ctx, tgt = ctx.to(device), tgt.to(device)
+                frac = min(1.0, step / total_steps)
 
                 optimizer.zero_grad()
-                pred, h_tgt, h_all = model(batch_x, ctx, tgt)
-                # The targets are detached: the encoder must not lower
-                # the loss by making its own targets easier to predict.
-                if self.variant == 'tsjepa':
-                    loss_pred = F.l1_loss(pred, h_tgt.detach())
+                if recipe is None:
+                    loss, loss_pred = self._loss(model, batch_x, ctx, tgt,
+                                                 gen)
                 else:
-                    loss_pred = F.mse_loss(pred, h_tgt.detach())
-                loss = loss_pred
-                if self.variant == 'lejepa':
-                    # one group per patch position: (P, B, D)
-                    reg = sigreg_loss(h_all.transpose(0, 1),
-                                      num_slices=self.sigreg_slices,
-                                      generator=gen)
-                    loss = (1 - self.sigreg_weight) * loss_pred \
-                           + self.sigreg_weight * reg
-                if self.recon_weight > 0:
-                    loss = loss + self.recon_weight * F.mse_loss(
-                        model.recon_head(h_all), batch_x)
+                    state = dict(frac=frac, epoch=epoch, n_epochs=n_epochs)
+                    loss, loss_pred = recipe.loss(
+                        self, model, batch_x, ctx, tgt, gen, state, hp)
                 loss.backward()
                 if self.grad_clip:
                     torch.nn.utils.clip_grad_norm_(model.parameters(),
                                                    self.grad_clip)
                 optimizer.step()
 
-                if self.variant != 'lejepa':
-                    frac = min(1.0, step / total_steps)
-                    momentum = self.ema_momentum_ \
-                               + (1 - self.ema_momentum_) * frac
+                if schedule is not None:
                     ema_update(model.target_encoder, model.encoder,
-                               momentum)
+                               momentum_at(self.ema_momentum_, frac,
+                                           schedule))
                 step += 1
                 epoch_losses.append(loss_pred.item())
             scheduler.step()
             if self.verbose:
                 print('Epoch %d/%d, latent prediction loss=%.4f'
-                      % (epoch + 1, self.epochs,
+                      % (epoch + 1, n_epochs,
                          float(np.mean(epoch_losses))))
         model.eval()
 
@@ -634,6 +818,9 @@ class TSJEPA(BaseDetector):
         torch = _require_torch()
         from ._jepa_utils import eval_masks
 
+        if hasattr(self.model_, 'eval_mask_set'):
+            # the variants that do not hide patches have one fixed split
+            return self.model_.eval_mask_set()
         gen = torch.Generator().manual_seed(self.random_state + 1)
         return eval_masks(self.n_tokens_, self.n_mask_, self.mask_mode,
                           self.n_mask_samples, gen)

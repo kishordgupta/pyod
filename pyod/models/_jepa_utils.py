@@ -23,6 +23,8 @@ representation collapse is prevented:
 * :class:`TJEPACore`: the network of T-JEPA, with an EMA copy of the
   whole encoder and regularisation tokens.
 
+The networks of the other versions are in ``_jepa_variants.py``.
+
 This module imports torch at load time; detectors that must stay
 importable without torch should import it lazily.
 """
@@ -113,6 +115,32 @@ def ema_update(target, online, momentum):
         p_t.mul_(momentum).add_(p_o.detach(), alpha=1.0 - momentum)
     for b_t, b_o in zip(target.buffers(), online.buffers()):
         b_t.copy_(b_o)
+
+
+def momentum_at(start, frac, schedule='linear'):
+    """Momentum of the target encoder after a share of the training.
+
+    Parameters
+    ----------
+    start : float
+        Momentum at the first step.
+
+    frac : float in [0., 1.]
+        Share of the training steps done.
+
+    schedule : str, optional (default='linear')
+        'fixed' keeps ``start``; 'linear' and 'cosine' go from
+        ``start`` to 1.
+
+    Returns
+    -------
+    momentum : float
+    """
+    if schedule == 'fixed':
+        return start
+    if schedule == 'cosine':
+        return 1.0 - (1.0 - start) * 0.5 * (1.0 + math.cos(math.pi * frac))
+    return start + (1.0 - start) * frac
 
 
 # ----------------------------------------------------------------------
