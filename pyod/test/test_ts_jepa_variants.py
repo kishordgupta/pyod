@@ -29,6 +29,12 @@ def _torch_available():
         return False
 
 
+def _device(model):
+    """Device of a fitted network: device='auto' puts it on a GPU
+    when there is one, and the tensors of a test must follow."""
+    return next(model.parameters()).device
+
+
 NEW = ('vjepa', 'vjepa21', 'cjepa', 'sjepa', 'salt', 'vicreg', 'kerjepa',
        'lpjepa', 'lambdajepa', 'lenepa', 'lewm', 'cfjepa')
 EMA = ('vjepa', 'vjepa21', 'cjepa', 'sjepa', 'cfjepa')
@@ -289,7 +295,7 @@ class TestTSJEPAFurtherVariants(unittest.TestCase):
                                          initial.n_channels_)
             for a, b in zip(initial.model_.parameters(),
                             fresh.parameters()):
-                assert torch.equal(a, b), variant
+                assert torch.equal(a.cpu(), b), variant
             assert np.isfinite(initial.decision_scores_).all(), variant
             assert not initial.model_.training, variant
 
@@ -386,7 +392,7 @@ class TestTSJEPAFurtherVariants(unittest.TestCase):
                         model.teacher_parameters()):
             assert torch.equal(a, b)
         # the student is what is embedded
-        x = torch.randn(4, 8, 15)
+        x = torch.randn(4, 8, 15).to(_device(model))
         _, h_all = model.multi_mask_errors(
             x, *self.fitted['salt']._eval_mask_set())
         with torch.no_grad():
@@ -472,9 +478,10 @@ class TestTSJEPAFurtherVariants(unittest.TestCase):
                                 n_layers=n_layers)
             assert net.levels == levels
         net = self.fitted['vjepa21'].model_
-        x = torch.randn(5, 8, 15)
-        ctx = torch.arange(0, 6).repeat(5, 1)
-        tgt = torch.arange(6, 8).repeat(5, 1)
+        device = _device(net)
+        x = torch.randn(5, 8, 15).to(device)
+        ctx = torch.arange(0, 6).repeat(5, 1).to(device)
+        tgt = torch.arange(6, 8).repeat(5, 1).to(device)
         with torch.no_grad():
             preds, targets = net(x, ctx, tgt)
         assert len(preds) == 2
@@ -485,9 +492,10 @@ class TestTSJEPAFurtherVariants(unittest.TestCase):
         import torch
         net = self.fitted['sjepa'].model_
         assert net.latent_dim == 16
-        x = torch.randn(5, 8, 15)
-        ctx = torch.arange(0, 6).repeat(5, 1)
-        tgt = torch.arange(6, 8).repeat(5, 1)
+        device = _device(net)
+        x = torch.randn(5, 8, 15).to(device)
+        ctx = torch.arange(0, 6).repeat(5, 1).to(device)
+        tgt = torch.arange(6, 8).repeat(5, 1).to(device)
         with torch.no_grad():
             h_ctx = net.encoder(net.embed(x)[:, :6])
             mu, _ = net.prior(h_ctx)
@@ -496,12 +504,14 @@ class TestTSJEPAFurtherVariants(unittest.TestCase):
                                net.predict(h_ctx, ctx, tgt, mu))
             assert not torch.allclose(net.predict(h_ctx, ctx, tgt),
                                       net.predict(h_ctx, ctx, tgt, mu + 1.0))
-            kl = net.forward_latent(x, ctx, tgt, torch.zeros(5, 16))[3]
+            kl = net.forward_latent(
+                x, ctx, tgt, torch.zeros(5, 16, device=device))[3]
         assert kl.item() >= 0.0
 
     def test_regularised_variants(self):
         import torch
-        patches = torch.randn(32, 8, 15)
+        device = _device(self.fitted['kerjepa'].model_)
+        patches = torch.randn(32, 8, 15).to(device)
         masks = self.fitted['kerjepa']._eval_mask_set()
         # Rectified LpJEPA: non-negative embeddings with exact zeros
         _, emb = self.fitted['lpjepa'].model_.multi_mask_errors(
@@ -511,7 +521,7 @@ class TestTSJEPAFurtherVariants(unittest.TestCase):
         # KerJEPA: running target statistics, frozen when scoring
         model = self.fitted['kerjepa'].model_
         initial = self._fit('kerjepa', epochs=0).model_
-        assert torch.equal(initial.tgt_mean, torch.zeros(64))
+        assert torch.equal(initial.tgt_mean.cpu(), torch.zeros(64))
         assert initial.tgt_var.item() == 1.0
         assert model.tgt_mean.abs().max().item() > 0
         before = model.tgt_mean.clone()

@@ -292,8 +292,10 @@ class TestTSJEPAVariants(unittest.TestCase):
             clf = self._fit(variant, epochs=0)
             torch.manual_seed(self.params['random_state'])
             fresh = clf._build_model(clf.n_tokens_, clf.n_channels_)
+            # the fresh network is on the CPU, the fitted one where
+            # device='auto' put it
             for a, b in zip(clf.model_.parameters(), fresh.parameters()):
-                assert torch.equal(a, b), variant
+                assert torch.equal(a.cpu(), b), variant
             assert np.isfinite(clf.decision_scores_).all(), variant
 
     def test_mask_modes(self):
